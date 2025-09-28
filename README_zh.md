@@ -64,6 +64,7 @@ atm
 - **Codex** - OpenAI Codex命令行工具
 - **iFlow** - iFlow AI开发命令行工具
 - **OpenCode** - 为终端而生的AI编程代理
+- **Copilot CLI** - GitHub Copilot命令行工具，将Copilot编程代理的强大功能直接带到您的终端
 
 ## 配置
 

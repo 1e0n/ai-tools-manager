@@ -84,7 +84,98 @@ class CustomListPrompt extends inquirer.prompt.prompts.list {
   }
 }
 
+// Create custom checkbox prompt without English hints
+class CustomCheckboxPrompt extends inquirer.prompt.prompts.checkbox {
+  render() {
+    // Render question
+    let message = this.getQuestion();
+
+    if (this.firstRender) {
+      // Don't add the English hints - leave empty for international compatibility
+    }
+
+    // Render choices or answer depending on the state
+    if (this.status === 'answered') {
+      const selection = this.opt.choices
+        .where(function (choice) {
+          return choice.checked && !choice.disabled;
+        })
+        .map(function (choice) {
+          return choice.short;
+        });
+      message += require('chalk').cyan(selection.join(', '));
+    } else {
+      const choicesStr = this.renderChoices(this.opt.choices, this.pointer);
+      const indexPosition = this.opt.choices.indexOf(
+        this.opt.choices.getChoice(this.pointer)
+      );
+      const realIndexPosition =
+        this.opt.choices.reduce((acc, value, i) => {
+          // Dont count lines past the choice we are looking at
+          if (i > indexPosition) {
+            return acc;
+          }
+          // Skip choice object if disabled or separator
+          if (value.type === 'separator' || value.disabled) {
+            return acc;
+          }
+          // Calculate lines taken up by string
+          let l = value.name || value;
+          if (typeof l === 'string') {
+            l = l.split('\n');
+            return acc + l.length;
+          }
+          return acc + 1;
+        }, 0) - 1;
+
+      message +=
+        '\n' + this.paginator.paginate(choicesStr, realIndexPosition, this.opt.pageSize);
+    }
+
+    this.firstRender = false;
+
+    this.screen.render(message);
+  }
+
+  renderChoices(choices, pointer) {
+    let output = '';
+    let separatorOffset = 0;
+    const chalk = require('chalk');
+    const figures = require('figures');
+
+    choices.forEach((choice, i) => {
+      if (choice.type === 'separator') {
+        separatorOffset++;
+        output += '  ' + choice + '\n';
+        return;
+      }
+
+      if (choice.disabled) {
+        separatorOffset++;
+        output += '  - ' + choice.name;
+        output += ` (${
+          typeof choice.disabled === 'string' ? choice.disabled : 'Disabled'
+        })`;
+        output += '\n';
+        return;
+      }
+
+      const isSelected = i - separatorOffset === pointer;
+      const checkbox = choice.checked ? figures.radioOn : figures.radioOff;
+      let line = (isSelected ? figures.pointer + ' ' : '  ') + checkbox + ' ' + choice.name;
+      if (isSelected) {
+        line = chalk.cyan(line);
+      }
+
+      output += line + ' \n';
+    });
+
+    return output.replace(/\n$/, '');
+  }
+}
+
 inquirer.registerPrompt('customList', CustomListPrompt);
+inquirer.registerPrompt('customCheckbox', CustomCheckboxPrompt);
 const chalk = require('chalk');
 const ora = require('ora');
 const path = require('path');
@@ -230,7 +321,7 @@ class ATM {
 
     const { selectedTools } = await inquirer.prompt([
       {
-        type: 'checkbox',
+        type: 'customCheckbox',
         name: 'selectedTools',
         message: `${i18n.t('install.selectToInstall')} ${i18n.t('prompts.pressSpace')}`,
         choices: availableTools.map(tool => ({
@@ -327,10 +418,9 @@ class ATM {
 
     const { selectedTools } = await inquirer.prompt([
       {
-        type: 'checkbox',
+        type: 'customCheckbox',
         name: 'selectedTools',
-        message: i18n.t('update.selectToUpdate'),
-        suffix: ` ${i18n.t('prompts.pressSpace')}`,
+        message: `${i18n.t('update.selectToUpdate')} ${i18n.t('prompts.pressSpace')}`,
         choices: updatableTools.map(tool => ({
           name: `${tool.name} (v${tool.currentVersion} → v${tool.latestVersion})`,
           value: tool,
@@ -376,10 +466,9 @@ class ATM {
 
     const { selectedTools } = await inquirer.prompt([
       {
-        type: 'checkbox',
+        type: 'customCheckbox',
         name: 'selectedTools',
-        message: i18n.t('uninstall.selectToUninstall'),
-        suffix: ` ${i18n.t('prompts.pressSpace')}`,
+        message: `${i18n.t('uninstall.selectToUninstall')} ${i18n.t('prompts.pressSpace')}`,
         choices: installedTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
@@ -397,8 +486,7 @@ class ATM {
       {
         type: 'confirm',
         name: 'confirmUninstall',
-        message: i18n.t('uninstall.confirm', selectedTools.length),
-        suffix: ` ${i18n.t('prompts.confirm')}`,
+        message: `${i18n.t('uninstall.confirm', selectedTools.length)} ${i18n.t('prompts.confirm')}`,
         default: false
       }
     ]);

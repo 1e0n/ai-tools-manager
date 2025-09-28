@@ -44,6 +44,11 @@
       "name": "OpenCode",
       "package": "opencode-ai",
       "description": "AI coding agent, built for the terminal."
+    },
+    {
+      "name": "Copilot CLI",
+      "package": "@github/copilot",
+      "description": "GitHub Copilot CLI brings the power of Copilot coding agent directly to your terminal."
     }
   ]
 }

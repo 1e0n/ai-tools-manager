@@ -64,6 +64,7 @@ The following AI development tools are supported:
 - **Codex** - OpenAI Codex CLI tool
 - **iFlow** - iFlow AI development CLI
 - **OpenCode** - AI coding agent, built for the terminal
+- **Copilot CLI** - GitHub Copilot CLI brings the power of Copilot coding agent directly to your terminal
 
 ## Configuration
 
