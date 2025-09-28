@@ -1,0 +1,70 @@
+{
+  "app": {
+    "title": "🔧 AI Tools Manager (ATM)",
+    "goodbye": "Goodbye! 👋",
+    "error": "Error",
+    "separator": "──────────────────────────────────────────────────"
+  },
+  "menu": {
+    "whatToDo": "What would you like to do?",
+    "install": "📦 Install tools",
+    "query": "🔍 Query tools",
+    "update": "⬆️  Update tools",
+    "uninstall": "🗑️  Uninstall tools",
+    "exit": "❌ Exit"
+  },
+  "install": {
+    "checking": "Checking installed packages...",
+    "allInstalled": "All configured tools are already installed! ✨",
+    "selectToInstall": "Select tools to install:",
+    "noneSelected": "No tools selected for installation.",
+    "installing": "Installing %s...",
+    "success": "%s installed successfully!",
+    "failed": "Failed to install %s: %s"
+  },
+  "query": {
+    "checking": "Checking installed packages...",
+    "noneInstalled": "No configured tools are currently installed.",
+    "installedTools": "📋 Installed AI Tools:",
+    "version": "Version:",
+    "upToDate": "(up to date)",
+    "updateAvailable": "→ v%s available",
+    "unknownVersion": "Unknown version"
+  },
+  "update": {
+    "checking": "Checking for updates...",
+    "allUpToDate": "All installed tools are up to date! ✨",
+    "selectToUpdate": "Select tools to update:",
+    "noneSelected": "No tools selected for update.",
+    "updating": "Updating %s...",
+    "success": "%s updated successfully!",
+    "failed": "Failed to update %s: %s"
+  },
+  "uninstall": {
+    "checking": "Checking installed packages...",
+    "noneInstalled": "No configured tools are currently installed.",
+    "selectToUninstall": "Select tools to uninstall:",
+    "noneSelected": "No tools selected for uninstallation.",
+    "confirm": "Are you sure you want to uninstall %d tool(s)?",
+    "cancelled": "Uninstallation cancelled.",
+    "uninstalling": "Uninstalling %s...",
+    "success": "%s uninstalled successfully!",
+    "failed": "Failed to uninstall %s: %s"
+  },
+  "config": {
+    "loadError": "Error loading configuration:"
+  },
+  "version": {
+    "checking": "Checking for updates...",
+    "updateAvailable": "🎉 New version available!",
+    "currentVersion": "Current version: v%s",
+    "latestVersion": "Latest version: v%s",
+    "updatePrompt": "Would you like to open the GitHub repository to update?",
+    "openRepository": "📖 Open GitHub Repository",
+    "skipUpdate": "⏭️  Skip this update",
+    "repositoryOpened": "Repository opened in your browser.",
+    "repositoryOpenFailed": "Could not open browser. Please visit: %s",
+    "noUpdateAvailable": "You are using the latest version! ✨",
+    "checkFailed": "Could not check for updates."
+  }
+}

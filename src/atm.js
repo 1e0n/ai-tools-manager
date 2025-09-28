@@ -4,10 +4,13 @@ const ora = require('ora');
 const path = require('path');
 const fs = require('fs').promises;
 const { PackageManager } = require('./package-manager');
+const { VersionChecker } = require('./version-checker');
+const i18n = require('./i18n');
 
 class ATM {
   constructor() {
     this.packageManager = new PackageManager();
+    this.versionChecker = new VersionChecker();
     this.toolsConfig = null;
   }
 
@@ -17,34 +20,83 @@ class ATM {
       const configData = await fs.readFile(configPath, 'utf8');
       this.toolsConfig = JSON.parse(configData);
     } catch (error) {
-      console.error(chalk.red('Error loading configuration:'), error.message);
+      console.error(chalk.red(i18n.t('config.loadError')), error.message);
       process.exit(1);
     }
   }
 
+  async checkForUpdates() {
+    try {
+      const spinner = ora(i18n.t('version.checking')).start();
+      const updateInfo = await this.versionChecker.checkForUpdates();
+      spinner.stop();
+
+      if (updateInfo.error) {
+        // 静默处理错误，不打扰用户
+        return;
+      }
+
+      if (updateInfo.hasUpdate) {
+        console.log(chalk.yellow.bold(`\n${i18n.t('version.updateAvailable')}`));
+        console.log(chalk.gray(i18n.t('version.currentVersion', updateInfo.currentVersion)));
+        console.log(chalk.green(i18n.t('version.latestVersion', updateInfo.latestVersion)));
+        console.log('');
+
+        const { shouldUpdate } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'shouldUpdate',
+            message: i18n.t('version.updatePrompt'),
+            choices: [
+              { name: i18n.t('version.openRepository'), value: true },
+              { name: i18n.t('version.skipUpdate'), value: false }
+            ]
+          }
+        ]);
+
+        if (shouldUpdate) {
+          const opened = await this.versionChecker.openRepository();
+          if (opened) {
+            console.log(chalk.green(i18n.t('version.repositoryOpened')));
+          } else {
+            console.log(chalk.yellow(i18n.t('version.repositoryOpenFailed', updateInfo.repositoryUrl)));
+          }
+          console.log('');
+        }
+      }
+    } catch (error) {
+      // 静默处理错误，不影响主程序运行
+    }
+  }
+
   async start() {
-    console.log(chalk.cyan.bold('\n🔧 AI Tools Manager (ATM)\n'));
+    console.log(chalk.cyan.bold(`\n${i18n.t('app.title')}\n`));
 
     await this.loadConfig();
+
+    // 检查更新（非阻塞，可通过环境变量禁用）
+    if (process.env.ATM_SKIP_VERSION_CHECK !== 'true') {
+      await this.checkForUpdates();
+    }
 
     while (true) {
       const { action } = await inquirer.prompt([
         {
           type: 'list',
           name: 'action',
-          message: 'What would you like to do?',
+          message: i18n.t('menu.whatToDo'),
           choices: [
-            { name: '📦 Install tools', value: 'install' },
-            { name: '🔍 Query tools', value: 'query' },
-            { name: '⬆️  Update tools', value: 'update' },
-            { name: '🗑️  Uninstall tools', value: 'uninstall' },
-            { name: '❌ Exit', value: 'exit' }
+            { name: i18n.t('menu.install'), value: 'install' },
+            { name: i18n.t('menu.query'), value: 'query' },
+            { name: i18n.t('menu.update'), value: 'update' },
+            { name: i18n.t('menu.uninstall'), value: 'uninstall' },
+            { name: i18n.t('menu.exit'), value: 'exit' }
           ]
         }
       ]);
 
       if (action === 'exit') {
-        console.log(chalk.green('\nGoodbye! 👋\n'));
+        console.log(chalk.green(`\n${i18n.t('app.goodbye')}\n`));
         break;
       }
 
@@ -64,15 +116,15 @@ class ATM {
             break;
         }
       } catch (error) {
-        console.error(chalk.red('Error:'), error.message);
+        console.error(chalk.red(i18n.t('app.error') + ':'), error.message);
       }
 
-      console.log('\n' + '─'.repeat(50) + '\n');
+      console.log('\n' + i18n.t('app.separator') + '\n');
     }
   }
 
   async handleInstall() {
-    const spinner = ora('Checking installed packages...').start();
+    const spinner = ora(i18n.t('install.checking')).start();
 
     const availableTools = [];
     for (const tool of this.toolsConfig.tools) {
@@ -85,7 +137,7 @@ class ATM {
     spinner.stop();
 
     if (availableTools.length === 0) {
-      console.log(chalk.yellow('All configured tools are already installed! ✨'));
+      console.log(chalk.yellow(i18n.t('install.allInstalled')));
       return;
     }
 
@@ -93,7 +145,7 @@ class ATM {
       {
         type: 'checkbox',
         name: 'selectedTools',
-        message: 'Select tools to install:',
+        message: i18n.t('install.selectToInstall'),
         choices: availableTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
@@ -103,24 +155,24 @@ class ATM {
     ]);
 
     if (selectedTools.length === 0) {
-      console.log(chalk.yellow('No tools selected for installation.'));
+      console.log(chalk.yellow(i18n.t('install.noneSelected')));
       return;
     }
 
     for (const tool of selectedTools) {
-      const installSpinner = ora(`Installing ${tool.name}...`).start();
+      const installSpinner = ora(i18n.t('install.installing', tool.name)).start();
       const result = await this.packageManager.installPackage(tool.package);
 
       if (result.success) {
-        installSpinner.succeed(chalk.green(`${tool.name} installed successfully!`));
+        installSpinner.succeed(chalk.green(i18n.t('install.success', tool.name)));
       } else {
-        installSpinner.fail(chalk.red(`Failed to install ${tool.name}: ${result.error}`));
+        installSpinner.fail(chalk.red(i18n.t('install.failed', tool.name, result.error)));
       }
     }
   }
 
   async handleQuery() {
-    const spinner = ora('Checking installed packages...').start();
+    const spinner = ora(i18n.t('query.checking')).start();
 
     const installedTools = [];
     for (const tool of this.toolsConfig.tools) {
@@ -141,24 +193,26 @@ class ATM {
     spinner.stop();
 
     if (installedTools.length === 0) {
-      console.log(chalk.yellow('No configured tools are currently installed.'));
+      console.log(chalk.yellow(i18n.t('query.noneInstalled')));
       return;
     }
 
-    console.log(chalk.cyan.bold('\n📋 Installed AI Tools:\n'));
+    console.log(chalk.cyan.bold(`\n${i18n.t('query.installedTools')}\n`));
 
     for (const tool of installedTools) {
-      const versionInfo = tool.currentVersion ? `v${tool.currentVersion}` : 'Unknown version';
-      const updateInfo = tool.hasUpdate ? chalk.yellow(` → v${tool.latestVersion} available`) : chalk.green(' (up to date)');
+      const versionInfo = tool.currentVersion ? `v${tool.currentVersion}` : i18n.t('query.unknownVersion');
+      const updateInfo = tool.hasUpdate
+        ? chalk.yellow(` ${i18n.t('query.updateAvailable', tool.latestVersion)}`)
+        : chalk.green(` ${i18n.t('query.upToDate')}`);
 
       console.log(`${chalk.blue('•')} ${chalk.bold(tool.name)} ${chalk.gray(`(${tool.package})`)}`);
-      console.log(`  ${chalk.gray('Version:')} ${versionInfo}${updateInfo}`);
-      console.log(`  ${chalk.gray('Description:')} ${tool.description}\n`);
+      console.log(`  ${chalk.gray(i18n.t('query.version'))} ${versionInfo}${updateInfo}`);
+      console.log(`  ${chalk.gray(tool.description)}\n`);
     }
   }
 
   async handleUpdate() {
-    const spinner = ora('Checking for updates...').start();
+    const spinner = ora(i18n.t('update.checking')).start();
 
     const updatableTools = [];
     for (const tool of this.toolsConfig.tools) {
@@ -180,7 +234,7 @@ class ATM {
     spinner.stop();
 
     if (updatableTools.length === 0) {
-      console.log(chalk.green('All installed tools are up to date! ✨'));
+      console.log(chalk.green(i18n.t('update.allUpToDate')));
       return;
     }
 
@@ -188,7 +242,7 @@ class ATM {
       {
         type: 'checkbox',
         name: 'selectedTools',
-        message: 'Select tools to update:',
+        message: i18n.t('update.selectToUpdate'),
         choices: updatableTools.map(tool => ({
           name: `${tool.name} (v${tool.currentVersion} → v${tool.latestVersion})`,
           value: tool,
@@ -198,24 +252,24 @@ class ATM {
     ]);
 
     if (selectedTools.length === 0) {
-      console.log(chalk.yellow('No tools selected for update.'));
+      console.log(chalk.yellow(i18n.t('update.noneSelected')));
       return;
     }
 
     for (const tool of selectedTools) {
-      const updateSpinner = ora(`Updating ${tool.name}...`).start();
+      const updateSpinner = ora(i18n.t('update.updating', tool.name)).start();
       const result = await this.packageManager.updatePackage(tool.package);
 
       if (result.success) {
-        updateSpinner.succeed(chalk.green(`${tool.name} updated successfully!`));
+        updateSpinner.succeed(chalk.green(i18n.t('update.success', tool.name)));
       } else {
-        updateSpinner.fail(chalk.red(`Failed to update ${tool.name}: ${result.error}`));
+        updateSpinner.fail(chalk.red(i18n.t('update.failed', tool.name, result.error)));
       }
     }
   }
 
   async handleUninstall() {
-    const spinner = ora('Checking installed packages...').start();
+    const spinner = ora(i18n.t('uninstall.checking')).start();
 
     const installedTools = [];
     for (const tool of this.toolsConfig.tools) {
@@ -228,7 +282,7 @@ class ATM {
     spinner.stop();
 
     if (installedTools.length === 0) {
-      console.log(chalk.yellow('No configured tools are currently installed.'));
+      console.log(chalk.yellow(i18n.t('uninstall.noneInstalled')));
       return;
     }
 
@@ -236,7 +290,7 @@ class ATM {
       {
         type: 'checkbox',
         name: 'selectedTools',
-        message: 'Select tools to uninstall:',
+        message: i18n.t('uninstall.selectToUninstall'),
         choices: installedTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
@@ -246,7 +300,7 @@ class ATM {
     ]);
 
     if (selectedTools.length === 0) {
-      console.log(chalk.yellow('No tools selected for uninstallation.'));
+      console.log(chalk.yellow(i18n.t('uninstall.noneSelected')));
       return;
     }
 
@@ -254,24 +308,24 @@ class ATM {
       {
         type: 'confirm',
         name: 'confirmUninstall',
-        message: `Are you sure you want to uninstall ${selectedTools.length} tool(s)?`,
+        message: i18n.t('uninstall.confirm', selectedTools.length),
         default: false
       }
     ]);
 
     if (!confirmUninstall) {
-      console.log(chalk.yellow('Uninstallation cancelled.'));
+      console.log(chalk.yellow(i18n.t('uninstall.cancelled')));
       return;
     }
 
     for (const tool of selectedTools) {
-      const uninstallSpinner = ora(`Uninstalling ${tool.name}...`).start();
+      const uninstallSpinner = ora(i18n.t('uninstall.uninstalling', tool.name)).start();
       const result = await this.packageManager.uninstallPackage(tool.package);
 
       if (result.success) {
-        uninstallSpinner.succeed(chalk.green(`${tool.name} uninstalled successfully!`));
+        uninstallSpinner.succeed(chalk.green(i18n.t('uninstall.success', tool.name)));
       } else {
-        uninstallSpinner.fail(chalk.red(`Failed to uninstall ${tool.name}: ${result.error}`));
+        uninstallSpinner.fail(chalk.red(i18n.t('uninstall.failed', tool.name, result.error)));
       }
     }
   }
