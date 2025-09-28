@@ -66,5 +66,10 @@
     "repositoryOpenFailed": "无法打开浏览器。请访问：%s",
     "noUpdateAvailable": "您正在使用最新版本！✨",
     "checkFailed": "无法检查更新。"
+  },
+  "prompts": {
+    "useArrowKeys": "（使用上下箭头键）",
+    "pressSpace": "（按 <空格> 选择，<a> 全选，<i> 反选，<回车> 确认）",
+    "confirm": "（y/N）"
   }
 }

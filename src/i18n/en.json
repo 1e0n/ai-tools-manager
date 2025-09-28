@@ -66,5 +66,10 @@
     "repositoryOpenFailed": "Could not open browser. Please visit: %s",
     "noUpdateAvailable": "You are using the latest version! ✨",
     "checkFailed": "Could not check for updates."
+  },
+  "prompts": {
+    "useArrowKeys": "(Use arrow keys)",
+    "pressSpace": "(Press <space> to select, <a> to toggle all, <i> to invert selection, and <enter> to proceed)",
+    "confirm": "(y/N)"
   }
 }

@@ -1,4 +1,90 @@
 const inquirer = require('inquirer');
+
+// Create custom list prompt without English hints
+class CustomListPrompt extends inquirer.prompt.prompts.list {
+  render() {
+    // Render question
+    let message = this.getQuestion();
+
+    if (this.firstRender) {
+      // Don't add the "(Use arrow keys)" hint - leave empty
+    }
+
+    // Render choices or answer depending on the state
+    if (this.status === 'answered') {
+      message += require('chalk').cyan(this.opt.choices.getChoice(this.selected).short);
+    } else {
+      const choicesStr = this.listRender(this.opt.choices, this.selected);
+      const indexPosition = this.opt.choices.indexOf(
+        this.opt.choices.getChoice(this.selected)
+      );
+      const realIndexPosition =
+        this.opt.choices.reduce((acc, value, i) => {
+          // Dont count lines past the choice we are looking at
+          if (i > indexPosition) {
+            return acc;
+          }
+
+          // Skip choice object if disabled or separator
+          if (value.type === 'separator' || value.disabled) {
+            return acc;
+          }
+
+          // Calculate lines taken up by string
+          let l = value.name || value;
+          if (typeof l === 'string') {
+            // Calculate lines taken up by string
+            l = l.split('\n');
+            return acc + l.length;
+          }
+          return acc + 1;
+        }, 0) - 1;
+      message +=
+        '\n' + this.paginator.paginate(choicesStr, realIndexPosition, this.opt.pageSize);
+    }
+
+    this.firstRender = false;
+
+    this.screen.render(message);
+  }
+
+  listRender(choices, pointer) {
+    let output = '';
+    let separatorOffset = 0;
+    const chalk = require('chalk');
+    const figures = require('figures');
+
+    choices.forEach((choice, i) => {
+      if (choice.type === 'separator') {
+        separatorOffset++;
+        output += '  ' + choice + '\n';
+        return;
+      }
+
+      if (choice.disabled) {
+        separatorOffset++;
+        output += '  - ' + choice.name;
+        output += ` (${
+          typeof choice.disabled === 'string' ? choice.disabled : 'Disabled'
+        })`;
+        output += '\n';
+        return;
+      }
+
+      const isSelected = i - separatorOffset === pointer;
+      let line = (isSelected ? figures.pointer + ' ' : '  ') + choice.name;
+      if (isSelected) {
+        line = chalk.cyan(line);
+      }
+
+      output += line + ' \n';
+    });
+
+    return output.replace(/\n$/, '');
+  }
+}
+
+inquirer.registerPrompt('customList', CustomListPrompt);
 const chalk = require('chalk');
 const ora = require('ora');
 const path = require('path');
@@ -44,9 +130,9 @@ class ATM {
 
         const { shouldUpdate } = await inquirer.prompt([
           {
-            type: 'list',
+            type: 'customList',
             name: 'shouldUpdate',
-            message: i18n.t('version.updatePrompt'),
+            message: `${i18n.t('version.updatePrompt')} ${i18n.t('prompts.useArrowKeys')}`,
             choices: [
               { name: i18n.t('version.openRepository'), value: true },
               { name: i18n.t('version.skipUpdate'), value: false }
@@ -82,16 +168,17 @@ class ATM {
     while (true) {
       const { action } = await inquirer.prompt([
         {
-          type: 'list',
+          type: 'customList',
           name: 'action',
-          message: i18n.t('menu.whatToDo'),
+          message: `${i18n.t('menu.whatToDo')} ${i18n.t('prompts.useArrowKeys')}`,
           choices: [
             { name: i18n.t('menu.install'), value: 'install' },
             { name: i18n.t('menu.query'), value: 'query' },
             { name: i18n.t('menu.update'), value: 'update' },
             { name: i18n.t('menu.uninstall'), value: 'uninstall' },
             { name: i18n.t('menu.exit'), value: 'exit' }
-          ]
+          ],
+          pageSize: 10
         }
       ]);
 
@@ -145,7 +232,7 @@ class ATM {
       {
         type: 'checkbox',
         name: 'selectedTools',
-        message: i18n.t('install.selectToInstall'),
+        message: `${i18n.t('install.selectToInstall')} ${i18n.t('prompts.pressSpace')}`,
         choices: availableTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
@@ -243,6 +330,7 @@ class ATM {
         type: 'checkbox',
         name: 'selectedTools',
         message: i18n.t('update.selectToUpdate'),
+        suffix: ` ${i18n.t('prompts.pressSpace')}`,
         choices: updatableTools.map(tool => ({
           name: `${tool.name} (v${tool.currentVersion} → v${tool.latestVersion})`,
           value: tool,
@@ -291,6 +379,7 @@ class ATM {
         type: 'checkbox',
         name: 'selectedTools',
         message: i18n.t('uninstall.selectToUninstall'),
+        suffix: ` ${i18n.t('prompts.pressSpace')}`,
         choices: installedTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
@@ -309,6 +398,7 @@ class ATM {
         type: 'confirm',
         name: 'confirmUninstall',
         message: i18n.t('uninstall.confirm', selectedTools.length),
+        suffix: ` ${i18n.t('prompts.confirm')}`,
         default: false
       }
     ]);
