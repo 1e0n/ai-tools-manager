@@ -39,7 +39,7 @@ class VersionChecker {
       await execAsync('git fetch --tags --quiet', { cwd: path.join(__dirname, '..') });
 
       const { stdout } = await execAsync(
-        'git describe --tags --abbrev=0 origin/main 2>/dev/null || git describe --tags --abbrev=0',
+        'git tag --sort=-version:refname | head -1',
         { cwd: path.join(__dirname, '..') }
       );
 
