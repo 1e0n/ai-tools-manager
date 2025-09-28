@@ -1,0 +1,44 @@
+{
+  "name": "ai-tools-manager",
+  "version": "1.0.0",
+  "description": "AI Tools Manager - A CLI tool for managing npm-installed AI development tools",
+  "main": "src/atm.js",
+  "bin": {
+    "atm": "./bin/atm.js"
+  },
+  "scripts": {
+    "start": "node bin/atm.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "npm",
+    "package-manager",
+    "ai-tools",
+    "atm",
+    "ai-development"
+  ],
+  "author": "1e0n <voop@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1e0n/ai-tools-manager.git"
+  },
+  "homepage": "https://github.com/1e0n/ai-tools-manager#readme",
+  "bugs": {
+    "url": "https://github.com/1e0n/ai-tools-manager/issues"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.6",
+    "ora": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "tools": [
+    {
+      "name": "Claude Code",
+      "package": "@anthropic-ai/claude-code",
+      "description": "Anthropic's official CLI for Claude AI"
+    },
+    {
+      "name": "Qwen Code",
+      "package": "@qwen-code/qwen-code@latest",
+      "description": "Qwen AI development tools"
+    },
+    {
+      "name": "Code Buddy",
+      "package": "@tencent-ai/codebuddy-code",
+      "description": "Tencent AI code assistant"
+    },
+    {
+      "name": "Gemini CLI",
+      "package": "@google/gemini-cli",
+      "description": "Google Gemini AI command line interface"
+    },
+    {
+      "name": "Auggie",
+      "package": "@augmentcode/auggie",
+      "description": "AI-powered code augmentation tool"
+    },
+    {
+      "name": "Crush",
+      "package": "@charmland/crush",
+      "description": "Charmland development tool"
+    },
+    {
+      "name": "Codex",
+      "package": "@openai/codex",
+      "description": "OpenAI Codex CLI tool"
+    },
+    {
+      "name": "iFlow",
+      "package": "@iflow-ai/iflow-cli",
+      "description": "iFlow AI development CLI"
+    },
+    {
+      "name": "OpenCode",
+      "package": "opencode-ai",
+      "description": "AI coding agent, built for the terminal."
+    }
+  ]
+}
