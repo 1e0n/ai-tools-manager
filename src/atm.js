@@ -189,6 +189,11 @@ class ATM {
     this.packageManager = new PackageManager();
     this.versionChecker = new VersionChecker();
     this.toolsConfig = null;
+    // Cache for tool installation status
+    this.installedTools = [];
+    this.uninstalledTools = [];
+    // Cache for version information
+    this.versionCache = new Map(); // Map<packageName, {currentVersion, latestVersion}>
   }
 
   async loadConfig() {
@@ -200,6 +205,21 @@ class ATM {
       console.error(chalk.red(i18n.t('config.loadError')), error.message);
       process.exit(1);
     }
+  }
+
+  async initializeToolsCache() {
+    const spinner = ora(i18n.t('app.initializing')).start();
+
+    for (const tool of this.toolsConfig.tools) {
+      const isInstalled = await this.packageManager.isPackageInstalled(tool.package);
+      if (isInstalled) {
+        this.installedTools.push(tool);
+      } else {
+        this.uninstalledTools.push(tool);
+      }
+    }
+
+    spinner.stop();
   }
 
   async checkForUpdates() {
@@ -250,6 +270,9 @@ class ATM {
     console.log(chalk.cyan.bold(`\n${i18n.t('app.title')}\n`));
 
     await this.loadConfig();
+
+    // 初始化工具缓存
+    await this.initializeToolsCache();
 
     // 检查更新（非阻塞，可通过环境变量禁用）
     if (process.env.ATM_SKIP_VERSION_CHECK !== 'true') {
@@ -302,19 +325,7 @@ class ATM {
   }
 
   async handleInstall() {
-    const spinner = ora(i18n.t('install.checking')).start();
-
-    const availableTools = [];
-    for (const tool of this.toolsConfig.tools) {
-      const isInstalled = await this.packageManager.isPackageInstalled(tool.package);
-      if (!isInstalled) {
-        availableTools.push(tool);
-      }
-    }
-
-    spinner.stop();
-
-    if (availableTools.length === 0) {
+    if (this.uninstalledTools.length === 0) {
       console.log(chalk.yellow(i18n.t('install.allInstalled')));
       return;
     }
@@ -324,7 +335,7 @@ class ATM {
         type: 'customCheckbox',
         name: 'selectedTools',
         message: `${i18n.t('install.selectToInstall')} ${i18n.t('prompts.pressSpace')}`,
-        choices: availableTools.map(tool => ({
+        choices: this.uninstalledTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
           short: tool.name
@@ -342,7 +353,16 @@ class ATM {
       const result = await this.packageManager.installPackage(tool.package);
 
       if (result.success) {
+        // Cache version info for newly installed tool while spinner is still showing
+        installSpinner.text = i18n.t('install.installing', tool.name) + ' - ' + i18n.t('query.checking');
+        const currentVersion = await this.packageManager.getPackageVersion(tool.package);
+        const latestVersion = await this.packageManager.getLatestVersion(tool.package);
+        this.versionCache.set(tool.package, { currentVersion, latestVersion });
+
         installSpinner.succeed(chalk.green(i18n.t('install.success', tool.name)));
+        // Move tool from uninstalled to installed list
+        this.uninstalledTools = this.uninstalledTools.filter(t => t.package !== tool.package);
+        this.installedTools.push(tool);
       } else {
         installSpinner.fail(chalk.red(i18n.t('install.failed', tool.name, result.error)));
       }
@@ -350,37 +370,35 @@ class ATM {
   }
 
   async handleQuery() {
+    if (this.installedTools.length === 0) {
+      console.log(chalk.yellow(i18n.t('query.noneInstalled')));
+      return;
+    }
+
     const spinner = ora(i18n.t('query.checking')).start();
 
-    const installedTools = [];
-    for (const tool of this.toolsConfig.tools) {
-      const isInstalled = await this.packageManager.isPackageInstalled(tool.package);
-      if (isInstalled) {
+    // Fetch version info for tools that don't have cached data
+    for (const tool of this.installedTools) {
+      if (!this.versionCache.has(tool.package)) {
         const currentVersion = await this.packageManager.getPackageVersion(tool.package);
         const latestVersion = await this.packageManager.getLatestVersion(tool.package);
-
-        installedTools.push({
-          ...tool,
-          currentVersion,
-          latestVersion,
-          hasUpdate: currentVersion && latestVersion && currentVersion !== latestVersion
-        });
+        this.versionCache.set(tool.package, { currentVersion, latestVersion });
       }
     }
 
     spinner.stop();
 
-    if (installedTools.length === 0) {
-      console.log(chalk.yellow(i18n.t('query.noneInstalled')));
-      return;
-    }
-
     console.log(chalk.cyan.bold(`\n${i18n.t('query.installedTools')}\n`));
 
-    for (const tool of installedTools) {
-      const versionInfo = tool.currentVersion ? `v${tool.currentVersion}` : i18n.t('query.unknownVersion');
-      const updateInfo = tool.hasUpdate
-        ? chalk.yellow(` ${i18n.t('query.updateAvailable', tool.latestVersion)}`)
+    for (const tool of this.installedTools) {
+      const versionData = this.versionCache.get(tool.package);
+      const currentVersion = versionData?.currentVersion;
+      const latestVersion = versionData?.latestVersion;
+      const hasUpdate = currentVersion && latestVersion && currentVersion !== latestVersion;
+
+      const versionInfo = currentVersion ? `v${currentVersion}` : i18n.t('query.unknownVersion');
+      const updateInfo = hasUpdate
+        ? chalk.yellow(` ${i18n.t('query.updateAvailable', latestVersion)}`)
         : chalk.green(` ${i18n.t('query.upToDate')}`);
 
       console.log(`${chalk.blue('•')} ${chalk.bold(tool.name)} ${chalk.gray(`(${tool.package})`)}`);
@@ -390,22 +408,32 @@ class ATM {
   }
 
   async handleUpdate() {
+    if (this.installedTools.length === 0) {
+      console.log(chalk.yellow(i18n.t('query.noneInstalled')));
+      return;
+    }
+
     const spinner = ora(i18n.t('update.checking')).start();
 
+    // Fetch version info for tools that don't have cached data
     const updatableTools = [];
-    for (const tool of this.toolsConfig.tools) {
-      const isInstalled = await this.packageManager.isPackageInstalled(tool.package);
-      if (isInstalled) {
+    for (const tool of this.installedTools) {
+      if (!this.versionCache.has(tool.package)) {
         const currentVersion = await this.packageManager.getPackageVersion(tool.package);
         const latestVersion = await this.packageManager.getLatestVersion(tool.package);
+        this.versionCache.set(tool.package, { currentVersion, latestVersion });
+      }
 
-        if (currentVersion && latestVersion && currentVersion !== latestVersion) {
-          updatableTools.push({
-            ...tool,
-            currentVersion,
-            latestVersion
-          });
-        }
+      const versionData = this.versionCache.get(tool.package);
+      const currentVersion = versionData?.currentVersion;
+      const latestVersion = versionData?.latestVersion;
+
+      if (currentVersion && latestVersion && currentVersion !== latestVersion) {
+        updatableTools.push({
+          ...tool,
+          currentVersion,
+          latestVersion
+        });
       }
     }
 
@@ -440,6 +468,11 @@ class ATM {
 
       if (result.success) {
         updateSpinner.succeed(chalk.green(i18n.t('update.success', tool.name)));
+        // Update the cached version to latest version
+        const versionData = this.versionCache.get(tool.package);
+        if (versionData) {
+          versionData.currentVersion = versionData.latestVersion;
+        }
       } else {
         updateSpinner.fail(chalk.red(i18n.t('update.failed', tool.name, result.error)));
       }
@@ -447,19 +480,7 @@ class ATM {
   }
 
   async handleUninstall() {
-    const spinner = ora(i18n.t('uninstall.checking')).start();
-
-    const installedTools = [];
-    for (const tool of this.toolsConfig.tools) {
-      const isInstalled = await this.packageManager.isPackageInstalled(tool.package);
-      if (isInstalled) {
-        installedTools.push(tool);
-      }
-    }
-
-    spinner.stop();
-
-    if (installedTools.length === 0) {
+    if (this.installedTools.length === 0) {
       console.log(chalk.yellow(i18n.t('uninstall.noneInstalled')));
       return;
     }
@@ -469,7 +490,7 @@ class ATM {
         type: 'customCheckbox',
         name: 'selectedTools',
         message: `${i18n.t('uninstall.selectToUninstall')} ${i18n.t('prompts.pressSpace')}`,
-        choices: installedTools.map(tool => ({
+        choices: this.installedTools.map(tool => ({
           name: `${tool.name} (${tool.package})`,
           value: tool,
           short: tool.name
@@ -502,6 +523,11 @@ class ATM {
 
       if (result.success) {
         uninstallSpinner.succeed(chalk.green(i18n.t('uninstall.success', tool.name)));
+        // Move tool from installed to uninstalled list
+        this.installedTools = this.installedTools.filter(t => t.package !== tool.package);
+        this.uninstalledTools.push(tool);
+        // Remove from version cache
+        this.versionCache.delete(tool.package);
       } else {
         uninstallSpinner.fail(chalk.red(i18n.t('uninstall.failed', tool.name, result.error)));
       }
