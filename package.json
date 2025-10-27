@@ -1,6 +1,6 @@
 {
   "name": "ai-tools-manager",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "AI Tools Manager - A CLI tool for managing npm-installed AI development tools",
   "main": "src/atm.js",
   "bin": {

@@ -7,7 +7,7 @@
     },
     {
       "name": "Qwen Code",
-      "package": "@qwen-code/qwen-code@latest",
+      "package": "@qwen-code/qwen-code",
       "description": "Qwen AI development tools"
     },
     {
